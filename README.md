@@ -47,4 +47,4 @@ pip install -r requirements.txt pytest
 python -m pytest tests
 python -m app            # 运行管理程序
 ```
-打标签 `vX.Y.Z` 推送后，GitHub Actions 自动构建 Windows 安装包与 Apple Silicon dmg 并发布到 Releases。
+修改 `app/__init__.py` 中的版本号并推送到 main，GitHub Actions 自动构建 Windows 安装包与 Apple Silicon dmg，并以 `v版本号` 发布到 Releases。
