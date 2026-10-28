@@ -1,0 +1,88 @@
+name: build
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -r requirements.txt pytest
+      - run: python -m pytest -q tests
+
+  windows:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -r requirements.txt pyinstaller==6.11.1
+      - name: Build app
+        working-directory: packaging
+        run: pyinstaller --noconfirm --clean --distpath ../dist --workpath ../build zotero_mcp.spec
+      - name: Smoke test
+        run: python packaging/smoke_test.py dist/ZoteroMCP/ZoteroMCP.exe
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $v = if ("${{ github.ref_type }}" -eq "tag") { "${{ github.ref_name }}".TrimStart("v") } else { "0.0.0-dev" }
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) { choco install innosetup -y --no-progress }
+          $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+          & $iscc "/DAppVersion=$v" packaging\windows.iss
+      - uses: actions/upload-artifact@v4
+        with: {name: ZoteroMCP-Windows, path: dist-installer/*.exe}
+
+  macos:
+    needs: test
+    runs-on: macos-14   # Apple Silicon (arm64)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install -r requirements.txt pyinstaller==6.11.1
+      - name: Make .icns
+        run: |
+          mkdir -p icon.iconset
+          for s in 16 32 64 128 256 512; do
+            sips -z $s $s packaging/build_assets/icon.png --out icon.iconset/icon_${s}x${s}.png >/dev/null
+            d=$((s*2)); sips -z $d $d packaging/build_assets/icon.png --out icon.iconset/icon_${s}x${s}@2x.png >/dev/null
+          done
+          iconutil -c icns icon.iconset -o packaging/build_assets/icon.icns
+      - name: Build app
+        working-directory: packaging
+        run: pyinstaller --noconfirm --clean --distpath ../dist --workpath ../build zotero_mcp.spec
+      - name: Ad-hoc sign
+        run: codesign --force --deep --sign - dist/ZoteroMCP.app
+      - name: Smoke test
+        run: python packaging/smoke_test.py dist/ZoteroMCP.app/Contents/MacOS/ZoteroMCP
+      - name: Build dmg
+        run: |
+          V=$([ "${{ github.ref_type }}" = "tag" ] && echo "${{ github.ref_name }}" | sed 's/^v//' || echo 0.0.0-dev)
+          mkdir -p dmg && cp -R dist/ZoteroMCP.app dmg/ && ln -s /Applications dmg/Applications
+          hdiutil create -volname "Zotero MCP" -srcfolder dmg -ov -format UDZO "ZoteroMCP-${V}-arm64.dmg"
+      - uses: actions/upload-artifact@v4
+        with: {name: ZoteroMCP-macOS-arm64, path: "*.dmg"}
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: {path: out, merge-multiple: true}
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: out/*
+          body: |
+            **Windows**: 运行 `ZoteroMCP-Setup-*.exe`（无需管理员）。SmartScreen 提示时点「更多信息 → 仍要运行」。
+            **macOS (Apple Silicon)**: 打开 dmg，把 Zotero MCP 拖进「应用程序」。首次打开请右键 → 打开（未经 Apple 公证）。
