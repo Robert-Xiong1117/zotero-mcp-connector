@@ -1,0 +1,4 @@
+**
+!requirements-cloud.txt
+!cloud/
+!cloud/*.py

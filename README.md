@@ -1,5 +1,11 @@
 # Zotero MCP Connector
 
+## 云端版 2.0.0rc1
+
+新增独立的云端只读 MCP：部署到云平台，通过 Zotero Web API 和 Zotero Storage 读取已同步文献、笔记、标注与 PDF，个人电脑无需开机。包含 OAuth、Docker 配置及独立 CI。当前不包含 WebDAV、AI4Paper 本机功能或写入工具。
+
+见 [云端部署与迁移说明](docs/cloud.md)。原桌面版说明如下。
+
 把本机的 Zotero 文献库安全地接到 **claude.ai / Claude 手机 App / Claude for PowerPoint·Word** 的自定义连接器。
 
 打包内容：
@@ -59,3 +65,4 @@ python -m pytest tests
 python -m app            # 运行管理程序
 ```
 修改 `app/__init__.py` 中的版本号并推送到 main，GitHub Actions 自动构建 Windows 安装包与 Apple Silicon dmg，并以 `v版本号` 发布到 Releases。
+

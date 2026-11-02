@@ -6,3 +6,11 @@ dist-installer/
 *.icns
 icon.iconset/
 .pytest_cache/
+
+.env
+.env.cloud
+.env.*.local
+.cloud-deps/
+*.sqlite
+*.sqlite-*
+
