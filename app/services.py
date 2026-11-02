@@ -113,10 +113,16 @@ class Services:
             env = dict(os.environ)
             env["ZOTERO_MCP_ADMIN_PASSWORD"] = cfg.admin_password
             env["ZOTERO_MCP_PUBLIC_URL"] = cfg.public_url
+            for k in ("ZMC_AI4PAPER_TOKEN", "ZMC_AI4PAPER_URL", "ZMC_AI4PAPER_SCHEME", "ZMC_AI4PAPER_TOOLS"):
+                env.pop(k, None)
+            if cfg.ai4paper_enabled and cfg.ai4paper_token:
+                env["ZMC_AI4PAPER_TOKEN"] = cfg.ai4paper_token
+                env["ZMC_AI4PAPER_URL"] = cfg.ai4paper_url
+                env["ZMC_AI4PAPER_SCHEME"] = cfg.ai4paper_scheme or "bearer"
+                env["ZMC_AI4PAPER_TOOLS"] = ",".join(cfgmod.ai4paper_tools(cfg))
             out = open(logs_dir() / "server.log", "ab")
             kw = {"creationflags": 0x08000000} if IS_WIN else {"start_new_session": True}
-            cmd = self_command() + ["serve-mcp", "serve", "--transport", "streamable-http",
-                                    "--host", "127.0.0.1", "--port", str(cfg.port)]
+            cmd = self_command() + ["serve-connector", str(cfg.port)]
             self.server = subprocess.Popen(cmd, env=env, stdin=subprocess.DEVNULL,
                                            stdout=out, stderr=out, **kw)
             for _ in range(90):
@@ -202,6 +208,9 @@ class Services:
             "tunnel": self._tunnel_up(cfg) if cfg.configured else False,
             "auth_mode_left": max(0, int(cfg.auth_mode_until - time.time())),
             "auth_mode_ip": cfg.auth_mode_ip,
+            "ai4paper_enabled": cfg.ai4paper_enabled and bool(cfg.ai4paper_token),
+            "ai4paper_reachable": http_code(cfg.ai4paper_url, 3) != 0 if cfg.ai4paper_enabled else False,
+            "ai4paper_tool_count": len(cfgmod.ai4paper_tools(cfg)),
             "events": list(self.events[-10:]),
             "requests": [],
         }

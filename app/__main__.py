@@ -1,8 +1,7 @@
 import sys
 
 
-def _serve_mcp(argv):
-    """Child-process mode: run the bundled zotero-mcp-lite CLI."""
+def _ensure_streams():
     import os
     if sys.stdout is None or sys.stderr is None:  # windowed build: no console handles
         from .paths import logs_dir
@@ -10,6 +9,11 @@ def _serve_mcp(argv):
         sys.stdout = sys.stdout or f
         sys.stderr = sys.stderr or f
     os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+
+
+def _serve_mcp(argv):
+    """Child-process mode: run the bundled zotero-mcp-lite CLI unchanged."""
+    _ensure_streams()
     from zotero_mcp.cli import main as zmain
     sys.argv = ["zotero-mcp"] + argv
     zmain()
@@ -77,6 +81,10 @@ def main():
     argv = sys.argv[1:]
     if argv and argv[0] == "serve-mcp":
         _serve_mcp(argv[1:])
+    elif argv and argv[0] == "serve-connector":
+        _ensure_streams()
+        from .serve import serve
+        serve(int(argv[1]) if len(argv) > 1 else 8000)
     elif argv and argv[0] == "version":
         from . import __version__
         print(__version__)

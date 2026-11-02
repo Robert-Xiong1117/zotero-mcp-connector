@@ -90,6 +90,14 @@ class Panel:
                     st["autostart"] = autostart.is_enabled()
                     st["ngrok_version"] = ngrok.version()
                     return self._send(200, st)
+                if path == "/api/ai4paper":
+                    from .ai4paper import DEFAULT_TOOLS, RISKY_TOOLS, WRITE_TOOLS
+                    c = cfgmod.load()
+                    return self._send(200, {"enabled": c.ai4paper_enabled, "has_token": bool(c.ai4paper_token),
+                                            "url": c.ai4paper_url, "scheme": c.ai4paper_scheme,
+                                            "selected": cfgmod.ai4paper_tools(c), "defaults": DEFAULT_TOOLS,
+                                            "write": sorted(WRITE_TOOLS), "risky": sorted(RISKY_TOOLS),
+                                            "known": sorted(set(DEFAULT_TOOLS) | WRITE_TOOLS | set(c.ai4paper_tools))})
                 if path == "/api/credentials":
                     c = cfgmod.load()
                     return self._send(200, {"basic_user": c.basic_user, "basic_password": c.basic_password,
@@ -126,6 +134,27 @@ class Panel:
                         return self._send(200, {"ok": True, "domain": c.domain,
                                                 "found_password": bool(c.admin_password),
                                                 "found_basic": bool(c.basic_user)})
+                    if path == "/api/ai4paper-test":
+                        from . import ai4paper
+                        c = cfgmod.load()
+                        token = (data.get("token") or "").strip() or c.ai4paper_token
+                        if not token:
+                            return self._send(400, {"error": "请填写 AI4Paper Token"})
+                        res = ai4paper.probe(c.ai4paper_url, token)
+                        if res.get("ok"):
+                            c.ai4paper_token, c.ai4paper_scheme = token, res["scheme"]
+                            cfgmod.save(c)
+                        return self._send(200, res)
+                    if path == "/api/ai4paper-save":
+                        c = cfgmod.load()
+                        c.ai4paper_enabled = bool(data.get("enabled"))
+                        if isinstance(data.get("tools"), list):
+                            c.ai4paper_tools = [t for t in data["tools"] if isinstance(t, str)]
+                        if c.ai4paper_enabled and not (c.ai4paper_token and c.ai4paper_scheme):
+                            return self._send(400, {"error": "请先填写 Token 并点「测试连接」"})
+                        cfgmod.save(c)
+                        threading.Thread(target=svc.start, daemon=True).start()
+                        return self._send(200, {"ok": True})
                     if path == "/api/start":
                         threading.Thread(target=svc.start, daemon=True).start()
                         return self._send(200, {"ok": True})

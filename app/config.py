@@ -22,6 +22,11 @@ class Config:
     auth_mode_ip: str = ""
     paused: bool = False
     autostart: bool = True
+    ai4paper_enabled: bool = False
+    ai4paper_token: str = ""
+    ai4paper_url: str = "http://127.0.0.1:23119/ai4paper/mcp"
+    ai4paper_scheme: str = ""             # resolved by probe: bearer | x-api-key | query
+    ai4paper_tools: list = field(default_factory=list)   # empty = defaults
 
     @property
     def public_url(self) -> str:
@@ -39,6 +44,11 @@ class Config:
             self.basic_user = "zotero-" + secrets.token_hex(3)
         if not self.basic_password:
             self.basic_password = secrets.token_urlsafe(24)
+
+
+def ai4paper_tools(cfg: "Config") -> list:
+    from .ai4paper import DEFAULT_TOOLS
+    return list(cfg.ai4paper_tools) if cfg.ai4paper_tools else list(DEFAULT_TOOLS)
 
 
 def config_path() -> Path:

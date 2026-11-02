@@ -55,6 +55,7 @@ details summary{cursor:pointer;color:var(--muted)}
     <div><span><span class="dot" id="d_server"></span>MCP 服务器（仅本机）</span><span class="v" id="v_server">…</span></div>
     <div><span><span class="dot" id="d_tunnel"></span>ngrok 隧道</span><span class="v" id="v_tunnel">…</span></div>
     <div><span><span class="dot" id="d_auth"></span>白名单</span><span class="v" id="v_auth">…</span></div>
+    <div><span><span class="dot" id="d_ai4"></span>AI4Paper 代理</span><span class="v" id="v_ai4">…</span></div>
   </div></div>
 
   <div class="card"><h2>连接器 URL（claude.ai → 设置 → 连接器 → 添加自定义连接器）</h2>
@@ -64,6 +65,18 @@ details summary{cursor:pointer;color:var(--muted)}
     <button class="primary" id="btnStart">启动 / 重启</button><button id="btnStop">停止</button>
     <button id="btnAuth">进入授权模式 15 分钟</button><button id="btnAuthEnd" class="hide">结束授权模式</button>
   </div><div class="note">授权模式：临时放行本机公网 IP，用于在 claude.ai 首次连接或重新授权；到时自动恢复，只留 Anthropic 的 IP。</div></div>
+
+  <div class="card"><h2>AI4Paper（通过同一个连接器调用）</h2>
+    <label><input type="checkbox" id="ai4On"> 启用：工具以 <code>ai4paper_</code> 前缀出现在 claude.ai / PPT / 手机</label>
+    <label>AI4Paper MCP Token <small>Zotero → 设置 → AI4Paper → 工具与连接 → 外部 AI 工具连接（需开启「启用认证」）</small></label>
+    <div class="url"><input type="password" id="ai4Tok" placeholder="a4p-mcp-…（已保存时可留空）"><button id="btnAi4Test">测试连接</button></div>
+    <div class="note" id="ai4Msg"></div>
+    <details style="margin-top:10px"><summary>开放哪些工具（默认：读取 + 导入/整理）</summary>
+      <div id="ai4Tools" style="columns:2;font:12px ui-monospace,Consolas,monospace;margin-top:8px"></div>
+      <div class="note">红色 = 批量/破坏性操作，建议保持关闭。写入类工具请在 claude.ai 连接器里设为「需要批准」。</div>
+    </details>
+    <div class="btns" style="margin-top:10px"><button class="primary" id="btnAi4Save">保存并重启服务</button></div>
+  </div>
 
   <div class="card"><h2>最近请求</h2><table id="reqs"></table></div>
   <div class="card"><h2>事件</h2><div class="events" id="events"></div></div>
@@ -100,6 +113,7 @@ async function refresh(){try{const s=await api("/api/status");
  if(document.activeElement!==$("url"))$("url").value=s.url;
  $("reqs").innerHTML=(s.requests.length?s.requests:[{time:"",method:"",path:"（暂无）",status:"",from:""}]).map(q=>`<tr><td>${q.time}</td><td>${q.method}</td><td>${q.path}</td><td>${q.status}</td><td>${q.from}</td></tr>`).join("");
  $("events").textContent=s.events.join("\n")||"（暂无）";
+ row("ai4",!s.ai4paper_enabled?"idle":s.ai4paper_reachable?"ok":"warn",!s.ai4paper_enabled?"未启用":s.ai4paper_reachable?`已启用，开放 ${s.ai4paper_tool_count} 个工具`:"已启用，但 AI4Paper 未响应（Zotero 未开？）");
  $("auto").checked=s.autostart;$("ver").textContent="版本 __VERSION__ · "+(s.ngrok_version||"ngrok 未安装");
 }catch(e){$("summary").textContent="面板连接中断："+e.message}}
 async function act(btn,fn){btn.disabled=true;try{await fn()}catch(e){alert(e.message)}finally{btn.disabled=false;refresh()}}
@@ -119,5 +133,18 @@ document.querySelector("details summary").parentElement;
 document.querySelectorAll("#main details")[0].addEventListener("toggle",async ev=>{if(!ev.target.open)return;const c=await api("/api/credentials");
  const items=[["第一道 用户名",c.basic_user],["第一道 密码",c.basic_password],["管理员密码",c.admin_password]];
  $("cred").innerHTML="";items.forEach(([k,v])=>{const a=document.createElement("span");a.textContent=k;const b=document.createElement("code");b.textContent=v;const btn=document.createElement("button");btn.textContent="复制";btn.onclick=()=>navigator.clipboard.writeText(v);$("cred").append(a,b,btn)})});
-refresh();setInterval(refresh,5000);
+let ai4={};
+function renderAi4(names){const sel=new Set(ai4.selected),w=new Set(ai4.write),r=new Set(ai4.risky);
+ $("ai4Tools").innerHTML="";names.forEach(n=>{const l=document.createElement("label");l.style.cssText="display:block;margin:2px 0;font-weight:400;"+(r.has(n)?"color:var(--bad)":"");
+  const c=document.createElement("input");c.type="checkbox";c.value=n;c.checked=sel.has(n);l.append(c," "+n.replace(/^zotero_/,"")+(w.has(n)?" ✎":""));$("ai4Tools").append(l)})}
+async function loadAi4(){ai4=await api("/api/ai4paper");$("ai4On").checked=ai4.enabled;renderAi4(ai4.known);
+ $("ai4Msg").textContent=ai4.has_token?`Token 已保存（认证方式：${ai4.scheme||"未测试"}）`:"尚未填写 Token"}
+$("btnAi4Test").onclick=e=>act(e.target,async()=>{$("ai4Msg").textContent="连接中…";const r=await api("/api/ai4paper-test",{token:$("ai4Tok").value});
+ if(!r.ok){$("ai4Msg").textContent="连接失败："+r.error;return}
+ $("ai4Tok").value="";ai4.has_token=true;ai4.scheme=r.scheme;const all=[...new Set([...ai4.known,...r.tools])].sort();ai4.known=all;
+ const cur=new Set([...document.querySelectorAll("#ai4Tools input:checked")].map(c=>c.value));ai4.selected=[...cur];renderAi4(all);
+ $("ai4Msg").textContent=`连接成功：AI4Paper 提供 ${r.tools.length} 个工具（认证方式：${r.scheme}）。勾选后点「保存并重启服务」。`});
+$("btnAi4Save").onclick=e=>act(e.target,async()=>{const tools=[...document.querySelectorAll("#ai4Tools input:checked")].map(c=>c.value);
+ await api("/api/ai4paper-save",{enabled:$("ai4On").checked,tools});$("ai4Msg").textContent="已保存，服务正在重启（约 20 秒）。claude.ai 里重新打开对话即可看到新工具。"});
+refresh();setInterval(refresh,5000);loadAi4().catch(()=>{});
 </script></body></html>"""
