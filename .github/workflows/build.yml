@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -16,11 +18,39 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
+      - uses: actions/setup-node@v4
+        with: {node-version: "20"}
       - run: pip install -r requirements.txt pytest
       - run: python -m pytest -q tests
 
+  xpi:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package Zotero bridge plugin
+        run: |
+          V=$(sed -n 's/^__version__ = "\(.*\)"/\1/p' app/__init__.py)
+          MV=$(python3 -c "import json;print(json.load(open('zotero-plugin/manifest.json'))['version'])")
+          [ "$V" = "$MV" ] || { echo "manifest version $MV != app version $V"; exit 1; }
+          (cd zotero-plugin && zip -r -X "../ZoteroMCP-Bridge-${V}.xpi" manifest.json bootstrap.js)
+          python3 - "$V" <<'PY'
+          import json, sys
+          v = sys.argv[1]
+          url = f"https://github.com/Robert-Xiong1117/zotero-mcp-connector/releases/download/v{v}/ZoteroMCP-Bridge-{v}.xpi"
+          upd = {"version": v, "update_link": url, "applications": {"zotero": {"strict_min_version": "6.999"}}}
+          json.dump({"addons": {"bridge@zoteromcp.robertxiong.com": {"updates": [upd]}}}, open("updates.json", "w"), indent=2)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZoteroMCP-Bridge
+          path: |
+            ZoteroMCP-Bridge-*.xpi
+            updates.json
+
   windows:
     needs: test
+    if: github.event_name != 'pull_request'   # PRs run test + xpi only
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,6 +75,7 @@ jobs:
 
   macos:
     needs: test
+    if: github.event_name != 'pull_request'
     runs-on: macos-14   # Apple Silicon (arm64)
     steps:
       - uses: actions/checkout@v4
@@ -75,7 +106,8 @@ jobs:
         with: {name: ZoteroMCP-macOS-arm64, path: "*.dmg"}
 
   release:
-    needs: [windows, macos]
+    needs: [windows, macos, xpi]
+    if: github.event_name != 'pull_request'   # never publish from a PR
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -93,3 +125,4 @@ jobs:
           body: |
             **Windows**: 运行 `ZoteroMCP-Setup-*.exe`（无需管理员）。SmartScreen 提示时点「更多信息 → 仍要运行」。
             **macOS (Apple Silicon)**: 打开 dmg，把 Zotero MCP 拖进「应用程序」。首次打开请右键 → 打开（未经 Apple 公证）。
+            **Zotero 桥接插件**（PDF 高亮 / 查找 PDF，可选）: Zotero → 工具 → 插件 → 齿轮 →「从文件安装附加组件…」选择 `ZoteroMCP-Bridge-*.xpi`，再把控制面板中的桥接 Token 填入 `extensions.zmc-bridge.token`。详见 README。

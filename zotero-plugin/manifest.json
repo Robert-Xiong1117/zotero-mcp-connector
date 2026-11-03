@@ -1,0 +1,16 @@
+{
+  "manifest_version": 2,
+  "name": "ZoteroMCP Bridge",
+  "version": "1.2.0",
+  "description": "Local write bridge for Zotero MCP Connector: PDF highlights and Find Available PDF. Token-protected, 127.0.0.1 only.",
+  "author": "Robert Xiong",
+  "homepage_url": "https://github.com/Robert-Xiong1117/zotero-mcp-connector",
+  "applications": {
+    "zotero": {
+      "id": "bridge@zoteromcp.robertxiong.com",
+      "update_url": "https://github.com/Robert-Xiong1117/zotero-mcp-connector/releases/latest/download/updates.json",
+      "strict_min_version": "6.999",
+      "strict_max_version": "10.*"
+    }
+  }
+}
