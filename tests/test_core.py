@@ -112,7 +112,8 @@ def test_status_and_panel_report_bridge(monkeypatch):
         r = _json.loads(op.open(req, timeout=5).read())
         assert r["token"] == cfg.zmc_bridge_token and r["ping"]["state"] == "offline"
         page = op.open(urllib.request.Request(f"http://127.0.0.1:{panel.port}/", headers={"X-Token": TOKEN})).read().decode()
-        assert "Zotero 桥接插件" in page and "ZoteroMCP-Bridge-1.2.0.xpi" in page and "__VERSION__" not in page
+        from app import __version__
+        assert "Zotero 桥接插件" in page and f"ZoteroMCP-Bridge-{__version__}.xpi" in page and "__VERSION__" not in page
         with pytest.raises(urllib.error.HTTPError):
             op.open(f"http://127.0.0.1:{panel.port}/api/bridge", timeout=5)          # no panel token
     finally:

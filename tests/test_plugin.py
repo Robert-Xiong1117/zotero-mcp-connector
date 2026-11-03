@@ -50,4 +50,4 @@ def test_plugin_version_matches_app():
     assert manifest["version"] == __version__
     spec = (ROOT / "packaging" / "zotero_mcp.spec").read_text(encoding="utf-8")
     assert f'"CFBundleShortVersionString": "{__version__}"' in spec
-    assert '"app.bridge"' in spec and '"app.pdfquote"' in spec
+    assert all(f'"app.{m}"' in spec for m in ("bridge", "pdfquote", "annotations"))

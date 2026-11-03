@@ -19,6 +19,12 @@ def serve(port: int) -> None:
     except Exception as e:  # never let the optional proxy take the main server down
         print(f"  AI4Paper proxy: disabled ({type(e).__name__}: {e})", file=sys.stderr)
     try:
+        from .annotations import install
+        install()       # annotations from the live library via the local API, not a (possibly stale) zotero.sqlite
+        print("  Annotations: read via Zotero local API", file=sys.stderr)
+    except Exception as e:
+        print(f"  Annotations: local API reader disabled ({type(e).__name__}: {e})", file=sys.stderr)
+    try:
         from .bridge import register
         register(mcp)   # tools report plugin/Zotero problems themselves; registration never needs Zotero
         print("  Zotero bridge tools: zotero_highlight_quote, zotero_find_pdf", file=sys.stderr)
