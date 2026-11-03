@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.1 — 2026-11-03
+### 修复
+- **批注读取改走 Zotero 本地 API**（`zotero_search_annotations`，以及 `zotero_get_item_children` 的批注部分）。
+  zotero-mcp-lite 直接读 `zotero.sqlite`：它不读 Zotero 设置中的数据目录（如 `D:\Zotero`），可能读到 `~/Zotero` 下的旧副本；
+  即使路径正确，Zotero 运行时也无法以只读方式打开数据库，最新的批注还在 WAL 中读不到。现在批注总是来自正在运行的文库，输出格式不变。
+- 已知限制：搜索非常常见的词时（数百条匹配）可能需要数秒，因为 Zotero 的批注搜索会连同 PDF 全文一起匹配，需要逐页筛选。
+
 ## 1.2.0 — 2026-11-03
 ### 新增
 - **PDF 原文高亮**：MCP 工具 `zotero_highlight_quote(item_key, quote, comment="", color="#ffd400")`。
