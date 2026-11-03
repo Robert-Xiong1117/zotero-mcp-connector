@@ -8,6 +8,7 @@ import time
 import urllib.error
 import urllib.request
 
+from . import bridge
 from . import config as cfgmod
 from . import ngrok
 from .paths import IS_WIN, logs_dir, self_command
@@ -106,6 +107,7 @@ class Services:
                 self.note("尚未完成设置")
                 return False
             cfg.paused = False
+            cfg.ensure_secrets()          # upgrades from <1.2.0 get a bridge token here
             cfgmod.save(cfg)
             self.stop(keep_paused_flag=True)
             self._kill_strays(cfg.port)
@@ -113,6 +115,7 @@ class Services:
             env = dict(os.environ)
             env["ZOTERO_MCP_ADMIN_PASSWORD"] = cfg.admin_password
             env["ZOTERO_MCP_PUBLIC_URL"] = cfg.public_url
+            env["ZMC_BRIDGE_TOKEN"] = cfg.zmc_bridge_token
             for k in ("ZMC_AI4PAPER_TOKEN", "ZMC_AI4PAPER_URL", "ZMC_AI4PAPER_SCHEME", "ZMC_AI4PAPER_TOOLS"):
                 env.pop(k, None)
             if cfg.ai4paper_enabled and cfg.ai4paper_token:
@@ -211,6 +214,7 @@ class Services:
             "ai4paper_enabled": cfg.ai4paper_enabled and bool(cfg.ai4paper_token),
             "ai4paper_reachable": http_code(cfg.ai4paper_url, 3) != 0 if cfg.ai4paper_enabled else False,
             "ai4paper_tool_count": len(cfgmod.ai4paper_tools(cfg)),
+            "bridge": bridge.ping(cfg.zmc_bridge_token) if cfg.configured else {"state": "no-token"},
             "events": list(self.events[-10:]),
             "requests": [],
         }

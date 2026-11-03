@@ -9,6 +9,10 @@ IS_MAC = sys.platform == "darwin"
 
 
 def config_dir() -> Path:
+    if os.environ.get("ZMC_CONFIG_DIR"):          # tests / portable override
+        d = Path(os.environ["ZMC_CONFIG_DIR"])
+        d.mkdir(parents=True, exist_ok=True)
+        return d
     if IS_WIN:
         base = Path(os.environ.get("APPDATA", Path.home() / "AppData" / "Roaming"))
     elif IS_MAC:
@@ -34,6 +38,8 @@ def bin_dir() -> Path:
 
 def oauth_db_path() -> Path:
     """Same location zotero-mcp-lite uses (platformdirs user_data_dir('zotero-mcp'))."""
+    if os.environ.get("ZMC_OAUTH_DB"):            # tests only: platformdirs ignores env vars on Windows
+        return Path(os.environ["ZMC_OAUTH_DB"])
     try:
         from platformdirs import user_data_dir
         return Path(user_data_dir("zotero-mcp")) / "oauth.sqlite"

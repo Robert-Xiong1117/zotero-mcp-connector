@@ -7,14 +7,6 @@ import urllib.request
 import pytest
 
 
-@pytest.fixture(autouse=True)
-def isolated_home(tmp_path, monkeypatch):
-    monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "cfg"))
-    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
-    yield
-
-
 def test_config_roundtrip_and_secrets():
     from app import config as c
     cfg = c.load()
@@ -68,7 +60,11 @@ def test_legacy_import(tmp_path):
 def test_server_child_requires_auth(tmp_path):
     """The bundled zotero-mcp-lite starts via 'serve-mcp' and rejects unauthenticated requests."""
     env = dict(os.environ, ZOTERO_MCP_ADMIN_PASSWORD="x" * 40, ZOTERO_MCP_PUBLIC_URL="https://x.ngrok-free.dev")
-    p = subprocess.Popen([sys.executable, "-m", "app", "serve-mcp", "serve", "--transport", "streamable-http",
+    # platformdirs ignores env vars on Windows: patch it so the child never opens the real oauth.sqlite
+    env["ZMC_TEST_DATA"] = str(tmp_path / "data")
+    boot = ("import os, sys, platformdirs; platformdirs.user_data_dir = lambda *a, **k: os.environ['ZMC_TEST_DATA']; "
+            "sys.argv = ['app'] + sys.argv[1:]; from app.__main__ import main; main()")
+    p = subprocess.Popen([sys.executable, "-c", boot, "serve-mcp", "serve", "--transport", "streamable-http",
                           "--host", "127.0.0.1", "--port", "18765"], env=env,
                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     try:
@@ -88,3 +84,36 @@ def test_server_child_requires_auth(tmp_path):
 def test_icon_renders():
     from app.icons import make_icon
     assert make_icon("ok", 64).size == (64, 64)
+
+
+def test_bridge_token_generated_once():
+    from app import config as c
+    cfg = c.Config(); cfg.ensure_secrets()
+    tok = cfg.zmc_bridge_token
+    assert tok.startswith("zmc-") and len(tok) > 30
+    cfg.ensure_secrets()
+    assert cfg.zmc_bridge_token == tok
+    old = c.Config(**{k: v for k, v in c.asdict(cfg).items() if k != "zmc_bridge_token"})   # pre-1.2.0 config
+    assert old.zmc_bridge_token == ""
+
+
+def test_status_and_panel_report_bridge(monkeypatch):
+    import json as _json
+    from app import config as c
+    from app.services import Services
+    from app.web import TOKEN, Panel
+    monkeypatch.setenv("ZMC_ZOTERO_URL", "http://127.0.0.1:9")      # nothing listens: Zotero "offline"
+    cfg = c.Config(ngrok_authtoken="t", domain="x.ngrok-free.dev"); cfg.ensure_secrets(); c.save(cfg)
+    assert Services().status()["bridge"]["state"] == "offline"
+    panel = Panel(None); panel.serve()
+    try:
+        op = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        req = urllib.request.Request(f"http://127.0.0.1:{panel.port}/api/bridge", headers={"X-Token": TOKEN})
+        r = _json.loads(op.open(req, timeout=5).read())
+        assert r["token"] == cfg.zmc_bridge_token and r["ping"]["state"] == "offline"
+        page = op.open(urllib.request.Request(f"http://127.0.0.1:{panel.port}/", headers={"X-Token": TOKEN})).read().decode()
+        assert "Zotero 桥接插件" in page and "ZoteroMCP-Bridge-1.2.0.xpi" in page and "__VERSION__" not in page
+        with pytest.raises(urllib.error.HTTPError):
+            op.open(f"http://127.0.0.1:{panel.port}/api/bridge", timeout=5)          # no panel token
+    finally:
+        panel.httpd.shutdown()

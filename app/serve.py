@@ -18,4 +18,10 @@ def serve(port: int) -> None:
             print("  AI4Paper proxy: mounted (namespace ai4paper)", file=sys.stderr)
     except Exception as e:  # never let the optional proxy take the main server down
         print(f"  AI4Paper proxy: disabled ({type(e).__name__}: {e})", file=sys.stderr)
+    try:
+        from .bridge import register
+        register(mcp)   # tools report plugin/Zotero problems themselves; registration never needs Zotero
+        print("  Zotero bridge tools: zotero_highlight_quote, zotero_find_pdf", file=sys.stderr)
+    except Exception as e:
+        print(f"  Zotero bridge tools: disabled ({type(e).__name__}: {e})", file=sys.stderr)
     mcp.run(transport="streamable-http", host="127.0.0.1", port=port)

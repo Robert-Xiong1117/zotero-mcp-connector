@@ -2,9 +2,9 @@ PAGE = r"""<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Zotero MCP</title>
 <style>
-:root{--bg:#f6f6f4;--card:#fff;--fg:#1d1d1f;--muted:#6e6e73;--line:#e3e3e0;--brand:#cc2936;--ok:#2ea043;--warn:#e6a21e;--bad:#da3633;--idle:#8c8c8c;--btn:#f0f0ee}
-@media (prefers-color-scheme:dark){:root{--bg:#1c1c1e;--card:#262628;--fg:#ececec;--muted:#9a9a9f;--line:#3a3a3c;--btn:#333336}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 -apple-system,"Segoe UI","Microsoft YaHei UI","PingFang SC",sans-serif}
+:root{--bg:#f6f6f4;--card:#fff;--fg:#1d1d1f;--muted:#6e6e73;--line:#e3e3e0;--brand:#cc2936;--ok:#2ea043;--warn:#e6a21e;--bad:#da3633;--idle:#8c8c8c;--btn:#f0f0ee;--link:#0a5bc4}
+@media (prefers-color-scheme:dark){:root{--bg:#1c1c1e;--card:#262628;--fg:#ececec;--muted:#9a9a9f;--line:#3a3a3c;--btn:#333336;--link:#6cb2ff}}
+*{box-sizing:border-box}a{color:var(--link)}body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 -apple-system,"Segoe UI","Microsoft YaHei UI","PingFang SC",sans-serif}
 .wrap{max-width:760px;margin:0 auto;padding:24px 16px 48px}
 header{display:flex;align-items:center;gap:12px;margin-bottom:16px}
 .logo{width:40px;height:40px;border-radius:10px;background:var(--brand);color:#fff;font-weight:700;font-size:24px;display:grid;place-items:center;position:relative}
@@ -56,6 +56,7 @@ details summary{cursor:pointer;color:var(--muted)}
     <div><span><span class="dot" id="d_tunnel"></span>ngrok 隧道</span><span class="v" id="v_tunnel">…</span></div>
     <div><span><span class="dot" id="d_auth"></span>白名单</span><span class="v" id="v_auth">…</span></div>
     <div><span><span class="dot" id="d_ai4"></span>AI4Paper 代理</span><span class="v" id="v_ai4">…</span></div>
+    <div><span><span class="dot" id="d_bridge"></span>Zotero 桥接插件</span><span class="v" id="v_bridge">…</span></div>
   </div></div>
 
   <div class="card"><h2>连接器 URL（claude.ai → 设置 → 连接器 → 添加自定义连接器）</h2>
@@ -76,6 +77,19 @@ details summary{cursor:pointer;color:var(--muted)}
       <div class="note">红色 = 批量/破坏性操作，建议保持关闭。写入类工具请在 claude.ai 连接器里设为「需要批准」。</div>
     </details>
     <div class="btns" style="margin-top:10px"><button class="primary" id="btnAi4Save">保存并重启服务</button></div>
+  </div>
+
+  <div class="card"><h2>Zotero 桥接插件（PDF 高亮 · 查找 PDF）</h2>
+    <div class="note" style="margin-top:0">提供 <code>zotero_highlight_quote</code> 与 <code>zotero_find_pdf</code>。Zotero 本地 API 只读，写批注须由 Zotero 内的插件完成；插件只在本机 127.0.0.1 响应，且每个请求都校验下面的 Token。</div>
+    <ol style="margin:8px 0 0;padding-left:20px;font-size:13px">
+      <li>从 <a id="xpiLink" target="_blank" rel="noopener">Releases</a> 下载 <code>ZoteroMCP-Bridge-__VERSION__.xpi</code>。</li>
+      <li>Zotero → 工具 → 插件 → 齿轮 →「从文件安装附加组件…」，选择该 .xpi。</li>
+      <li>Zotero → 设置 → 高级 →「设置编辑器」，搜索 <code>extensions.zmc-bridge.token</code>，双击后粘贴下面的 Token。</li>
+      <li>回到本面板，状态行显示「已连接」即可；claude.ai 中把这两个工具设为「需要批准」。</li>
+    </ol>
+    <label>桥接 Token</label>
+    <div class="url"><input type="password" id="brTok" readonly><button id="btnBrShow">显示</button><button id="btnBrCopy">复制</button></div>
+    <div class="note" id="brMsg"></div>
   </div>
 
   <div class="card"><h2>最近请求</h2><table id="reqs"></table></div>
@@ -114,6 +128,10 @@ async function refresh(){try{const s=await api("/api/status");
  $("reqs").innerHTML=(s.requests.length?s.requests:[{time:"",method:"",path:"（暂无）",status:"",from:""}]).map(q=>`<tr><td>${q.time}</td><td>${q.method}</td><td>${q.path}</td><td>${q.status}</td><td>${q.from}</td></tr>`).join("");
  $("events").textContent=s.events.join("\n")||"（暂无）";
  row("ai4",!s.ai4paper_enabled?"idle":s.ai4paper_reachable?"ok":"warn",!s.ai4paper_enabled?"未启用":s.ai4paper_reachable?`已启用，开放 ${s.ai4paper_tool_count} 个工具`:"已启用，但 AI4Paper 未响应（Zotero 未开？）");
+ const b=s.bridge||{},bv=b.version&&b.version!=="__VERSION__";
+ row("bridge",b.state=="ok"?(bv?"warn":"ok"):b.state=="offline"?"idle":b.state=="forbidden"?"bad":"warn",
+  b.state=="ok"?(bv?`已连接 v${b.version}，建议更新到 __VERSION__`:`已连接 v${b.version}`):b.state=="offline"?"Zotero 未运行":
+  b.state=="missing"?"未安装（见下方「Zotero 桥接插件」）":b.state=="forbidden"?"Token 不匹配：请重新粘贴":b.state=="no-token"?"未生成 Token（点「启动 / 重启」）":(b.message||"异常"));
  $("auto").checked=s.autostart;$("ver").textContent="版本 __VERSION__ · "+(s.ngrok_version||"ngrok 未安装");
 }catch(e){$("summary").textContent="面板连接中断："+e.message}}
 async function act(btn,fn){btn.disabled=true;try{await fn()}catch(e){alert(e.message)}finally{btn.disabled=false;refresh()}}
@@ -146,5 +164,9 @@ $("btnAi4Test").onclick=e=>act(e.target,async()=>{$("ai4Msg").textContent="连�
  $("ai4Msg").textContent=`连接成功：AI4Paper 提供 ${r.tools.length} 个工具（认证方式：${r.scheme}）。勾选后点「保存并重启服务」。`});
 $("btnAi4Save").onclick=e=>act(e.target,async()=>{const tools=[...document.querySelectorAll("#ai4Tools input:checked")].map(c=>c.value);
  await api("/api/ai4paper-save",{enabled:$("ai4On").checked,tools});$("ai4Msg").textContent="已保存，服务正在重启（约 20 秒）。claude.ai 里重新打开对话即可看到新工具。"});
-refresh();setInterval(refresh,5000);loadAi4().catch(()=>{});
+async function loadBridge(){const r=await api("/api/bridge");$("brTok").value=r.token||"";$("xpiLink").href=r.xpi;
+ $("brMsg").textContent=r.token?"":"尚未生成，点「启动 / 重启」后刷新本页"}
+$("btnBrShow").onclick=()=>{const i=$("brTok");i.type=i.type=="password"?"text":"password";$("btnBrShow").textContent=i.type=="password"?"显示":"隐藏"};
+$("btnBrCopy").onclick=()=>{navigator.clipboard.writeText($("brTok").value);$("btnBrCopy").textContent="已复制";setTimeout(()=>$("btnBrCopy").textContent="复制",1500)};
+refresh();setInterval(refresh,5000);loadAi4().catch(()=>{});loadBridge().catch(()=>{});
 </script></body></html>"""

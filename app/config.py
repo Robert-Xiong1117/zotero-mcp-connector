@@ -27,6 +27,7 @@ class Config:
     ai4paper_url: str = "http://127.0.0.1:23119/ai4paper/mcp"
     ai4paper_scheme: str = ""             # resolved by probe: bearer | x-api-key | query
     ai4paper_tools: list = field(default_factory=list)   # empty = defaults
+    zmc_bridge_token: str = ""            # shared with the ZoteroMCP Bridge plugin in Zotero (X-ZMC-Token)
 
     @property
     def public_url(self) -> str:
@@ -44,6 +45,8 @@ class Config:
             self.basic_user = "zotero-" + secrets.token_hex(3)
         if not self.basic_password:
             self.basic_password = secrets.token_urlsafe(24)
+        if not self.zmc_bridge_token:
+            self.zmc_bridge_token = "zmc-" + secrets.token_urlsafe(24)
 
 
 def ai4paper_tools(cfg: "Config") -> list:

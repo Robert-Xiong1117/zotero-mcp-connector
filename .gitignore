@@ -6,3 +6,4 @@ dist-installer/
 *.icns
 icon.iconset/
 .pytest_cache/
+.venv/

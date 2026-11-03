@@ -14,6 +14,7 @@ from .paths import IS_MAC, IS_WIN, logs_dir
 from .panel_html import PAGE
 
 TOKEN = secrets.token_urlsafe(24)
+XPI_URL = "https://github.com/Robert-Xiong1117/zotero-mcp-connector/releases/latest"
 
 
 def _free_port(preferred=47811) -> int:
@@ -98,6 +99,14 @@ class Panel:
                                             "selected": cfgmod.ai4paper_tools(c), "defaults": DEFAULT_TOOLS,
                                             "write": sorted(WRITE_TOOLS), "risky": sorted(RISKY_TOOLS),
                                             "known": sorted(set(DEFAULT_TOOLS) | WRITE_TOOLS | set(c.ai4paper_tools))})
+                if path == "/api/bridge":
+                    c = cfgmod.load()
+                    if c.configured and not c.zmc_bridge_token:
+                        c.ensure_secrets()
+                        cfgmod.save(c)
+                    from . import bridge
+                    return self._send(200, {"token": c.zmc_bridge_token, "ping": bridge.ping(c.zmc_bridge_token),
+                                            "xpi": XPI_URL})
                 if path == "/api/credentials":
                     c = cfgmod.load()
                     return self._send(200, {"basic_user": c.basic_user, "basic_password": c.basic_password,
