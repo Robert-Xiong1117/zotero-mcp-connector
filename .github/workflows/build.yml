@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -48,6 +50,7 @@ jobs:
 
   windows:
     needs: test
+    if: github.event_name != 'pull_request'   # PRs run test + xpi only
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -72,6 +75,7 @@ jobs:
 
   macos:
     needs: test
+    if: github.event_name != 'pull_request'
     runs-on: macos-14   # Apple Silicon (arm64)
     steps:
       - uses: actions/checkout@v4
@@ -103,6 +107,7 @@ jobs:
 
   release:
     needs: [windows, macos, xpi]
+    if: github.event_name != 'pull_request'   # never publish from a PR
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
