@@ -1,4 +1,7 @@
 zotero-mcp-lite==0.2.0
+# zotero-mcp-lite leaves these unpinned; pinned to the versions the stateless-HTTP tests ran on
+fastmcp==4.2.0
+mcp==2.3.0
 pystray==0.19.5
 Pillow>=10.4
 psutil>=6.0

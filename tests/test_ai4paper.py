@@ -108,7 +108,8 @@ def test_connector_child_starts_with_proxy(backend, tmp_path):
     p = subprocess.Popen([sys.executable, "-m", "app", "serve-connector", "18792"], env=env,
                          stdout=open(log, "w"), stderr=subprocess.STDOUT)
     try:
-        assert _wait("http://127.0.0.1:18792/mcp", ok=lambda c: c == 401) == 401
+        from app.services import mcp_server_up
+        assert any(mcp_server_up(18792, 2) or time.sleep(0.5) for _ in range(60))
         assert "AI4Paper proxy: mounted" in log.read_text()
     finally:
         p.kill()

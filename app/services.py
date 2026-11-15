@@ -19,8 +19,8 @@ ZOTERO_API = "http://127.0.0.1:23119/api/users/0/items?limit=1"
 NGROK_API = "http://127.0.0.1:4040/api"
 
 
-def http_code(url: str, timeout: float = 5.0, headers=None) -> int:
-    req = urllib.request.Request(url, headers=headers or {})
+def http_code(url: str, timeout: float = 5.0, headers=None, method: str = "GET", data: bytes = None) -> int:
+    req = urllib.request.Request(url, headers=headers or {}, method=method, data=data)
     try:
         with _NOPROXY.open(req, timeout=timeout) as r:
             return r.status
@@ -28,6 +28,16 @@ def http_code(url: str, timeout: float = 5.0, headers=None) -> int:
         return e.code
     except Exception:
         return 0
+
+
+def mcp_server_up(port: int, timeout: float = 3.0) -> bool:
+    """The MCP server is up and still behind OAuth: an unauthenticated POST gets 401.
+
+    POST, not GET: the server runs stateless HTTP, where GET /mcp is 405 (no stream to open)
+    before auth is even checked, so a GET probe would report a healthy server as down."""
+    return http_code(f"http://127.0.0.1:{port}/mcp", timeout, method="POST", data=b"{}",
+                     headers={"Content-Type": "application/json",
+                              "Accept": "application/json, text/event-stream"}) == 401
 
 
 def http_json(url: str, timeout: float = 3.0):
@@ -129,7 +139,7 @@ class Services:
             self.server = subprocess.Popen(cmd, env=env, stdin=subprocess.DEVNULL,
                                            stdout=out, stderr=out, **kw)
             for _ in range(90):
-                if http_code(f"http://127.0.0.1:{cfg.port}/mcp", 2) == 401:
+                if mcp_server_up(cfg.port, 2):
                     break
                 if self.server.poll() is not None:
                     self.note("MCP 服务器启动失败，查看 logs/server.log")
@@ -207,7 +217,7 @@ class Services:
             "paused": cfg.paused,
             "url": f"{cfg.public_url}/mcp" if cfg.domain else "",
             "zotero": http_code(ZOTERO_API, 3),
-            "server": http_code(f"http://127.0.0.1:{cfg.port}/mcp", 3) == 401,
+            "server": mcp_server_up(cfg.port, 3),
             "tunnel": self._tunnel_up(cfg) if cfg.configured else False,
             "auth_mode_left": max(0, int(cfg.auth_mode_until - time.time())),
             "auth_mode_ip": cfg.auth_mode_ip,

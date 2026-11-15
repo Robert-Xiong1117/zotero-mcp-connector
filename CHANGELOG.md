@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.2.2 — 2026-11-15
+### 修复
+- **Claude for PowerPoint 加载项调用工具时报 `HTTP 400: Missing session ID`**，重连也无效。
+  原因：MCP 服务器默认是「有状态」模式，要求每个请求都带初始化时下发的 `Mcp-Session-Id`；
+  PowerPoint 加载项不带这个头（claude.ai 网页端会带，所以网页端一直正常），每次调用都被拒绝。
+  服务器每次重启后旧的会话 ID 也会全部失效。现在改为**无状态 HTTP**（`stateless_http=True`），
+  每个请求独立处理，不再需要会话 ID。所有工具本来就不保存会话状态，没有功能损失；OAuth 认证不受影响。
+- 健康检查同步修正：无状态模式下 `GET /mcp` 返回 405（在认证之前），旧的「GET 返回 401 才算在线」会把正常的服务器判定为离线，
+  导致看门狗反复重启。现在改为用 POST 探测（返回 401 = 在线且认证开启）。
+- 锁定 `fastmcp==4.2.0`、`mcp==2.3.0`。zotero-mcp-lite 没有限定这两个依赖的版本，每次打包都会装最新版，默认行为可能随之改变。
+
+### 测试
+- `tests/test_stateless.py`：复现有状态模式下的 400 错误；验证不带会话 ID 的 `tools/call` 返回 200；
+  验证正式启动方式下 OAuth 仍然拦截未认证请求、健康检查判断正确。
+
 ## 1.2.1 — 2026-11-03
 ### 修复
 - **批注读取改走 Zotero 本地 API**（`zotero_search_annotations`，以及 `zotero_get_item_children` 的批注部分）。
