@@ -27,7 +27,11 @@ class Config:
     ai4paper_url: str = "http://127.0.0.1:23119/ai4paper/mcp"
     ai4paper_scheme: str = ""             # resolved by probe: bearer | x-api-key | query
     ai4paper_tools: list = field(default_factory=list)   # empty = defaults
-    zmc_bridge_token: str = ""            # shared with the ZoteroMCP Bridge plugin in Zotero (X-ZMC-Token)
+    zmc_bridge_token: str = ""
+    openai_enabled: bool = False          # also allow ChatGPT's published connector egress ranges
+    openai_cidrs: list = field(default_factory=list)      # last good copy of that list
+    openai_list_time: str = ""            # its creationTime, as published by OpenAI
+    openai_checked_at: float = 0.0        # epoch seconds of the last successful download            # shared with the ZoteroMCP Bridge plugin in Zotero (X-ZMC-Token)
 
     @property
     def public_url(self) -> str:

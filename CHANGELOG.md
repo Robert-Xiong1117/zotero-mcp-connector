@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.0 — 2026-11-16
+### 新增
+- **允许 ChatGPT 访问**（控制面板 →「其他 AI 平台」，默认关闭）。开启后从 OpenAI 官方发布的
+  `chatgpt-connectors.json` 下载 ChatGPT 连接器出站 IP 段并加入 ngrok 白名单；启动时及每天检查更新，
+  只有列表变化才重载隧道；下载失败保留上次的列表，明显异常（少于 10 段）的列表不会被采用。
+- 状态行「白名单」显示 `Anthropic + ChatGPT（N 段）`。
+- 白名单改为一条 `inCidrRanges(conn.client_ip, [...])` 拒绝规则，不再用 ngrok 的 `restrict-ips` 动作：
+  后者最多 10 条（ERR_NGROK_2218），实测放入 ChatGPT 的 290 段时隧道无法启动。新规则已在真实隧道上验证：
+  ngrok 接受 290 段；不在列表内的 IP 返回 403；在列表内的 IP 正常到达服务器（OAuth 返回 401）。
+- DeepSeek Harness 在本机运行、不经过隧道，因此不在白名单中；面板与 README 中加以说明。
+
 ## 1.2.2 — 2026-11-15
 ### 修复
 - **Claude for PowerPoint 加载项调用工具时报 `HTTP 400: Missing session ID`**，重连也无效。

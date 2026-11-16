@@ -71,19 +71,22 @@ def policy_path() -> Path:
 
 
 def write_policy(cfg: Config) -> Path:
-    allow = list(cfg.allow_cidrs)
+    from .providers import allow_list
+    allow = allow_list(cfg)
     if cfg.auth_mode_ip and cfg.auth_mode_until > time.time():
         allow.append(f"{cfg.auth_mode_ip}/32")
-    allow_yaml = "\n".join(f"            - {c}" for c in allow)
+    # A deny rule with inCidrRanges instead of the restrict-ips action: restrict-ips allows at most 10
+    # entries on ngrok's plans (ERR_NGROK_2218), ChatGPT alone publishes ~290 ranges.
+    cidrs = ", ".join(f"'{c}'" for c in allow)
     expr = " || ".join(f"req.url.path.startsWith('{p}')" for p in cfg.login_paths)
     yaml = (
         "on_http_request:\n"
-        "  - actions:\n"
-        "      - type: restrict-ips\n"
+        "  - expressions:\n"
+        f"      - \"!inCidrRanges(conn.client_ip, [{cidrs}])\"\n"
+        "    actions:\n"
+        "      - type: deny\n"
         "        config:\n"
-        "          enforce: true\n"
-        "          allow:\n"
-        f"{allow_yaml}\n"
+        "          status_code: 403\n"
         "  - expressions:\n"
         f"      - \"{expr}\"\n"
         "    actions:\n"

@@ -15,7 +15,7 @@
 |---|---|
 | 本机 | MCP 服务器只监听 `127.0.0.1` |
 | 通道 | ngrok 出站 TLS 隧道，无需路由器端口映射 |
-| 边缘 | IP 白名单只放行 Anthropic 出站段 `160.79.104.0/21`；授权模式临时放行本机 IP，到时自动收回 |
+| 边缘 | IP 白名单只放行 Anthropic 出站段 `160.79.104.0/21`（可选再放行 ChatGPT 官方发布的出站段，见下文）；授权模式临时放行本机 IP，到时自动收回 |
 | 登录页 | ngrok Basic Auth（第一道）+ zotero-mcp-lite 管理员密码（第二道） |
 | 访问令牌 | OAuth 2.1，令牌只在 claude.ai 与你的电脑之间 |
 
@@ -72,6 +72,19 @@ claude.ai → 设置 → 连接器 → 本连接器 → 工具权限：把 `zote
   这能防止本机网页或其他程序借 Zotero 端口写入你的文献库。
 - claude.ai 只能通过已有的 OAuth 连接器调用这两个工具，桥接 Token 不会离开你的电脑。
 - 插件只能新建高亮批注和添加 PDF 附件，不能删除或修改已有条目。
+
+## ChatGPT 与其他 AI（v1.3.0 起）
+默认只有 Anthropic 的服务器能连到隧道。控制面板 →「其他 AI 平台」→ 勾选「允许 ChatGPT 访问」后：
+- 软件从 OpenAI 官方地址 [`chatgpt-connectors.json`](https://developers.openai.com/api/docs/guides/ip-addresses) 下载 ChatGPT 连接器的出站 IP 段（目前约 290 段），加入 ngrok 白名单；
+- 启动时与此后每天检查一次，列表有变化才重载隧道；下载失败时沿用上次的列表；
+- 白名单只说明「请求来自 OpenAI 的服务器」，能否使用仍由同一套 OAuth + 两道密码决定。
+
+在 ChatGPT 中使用（菜单名称以 ChatGPT 当前界面为准）：设置 → 应用与连接器 → 高级 → 开启开发者模式 → 创建连接器，URL 填面板上的同一个地址；
+首次授权前先在面板点「进入授权模式」，按提示输入两道凭证（与 claude.ai 相同）。
+
+已知限制：OpenAI 社区有人报告开发者模式下偶尔有请求来自列表之外的地址（微软 Azure 网段）；遇到被拦截时，面板「最近请求」中会显示来源 IP。
+
+**DeepSeek Harness** 运行在本机，不经过隧道，不需要白名单。其他没有公开出站 IP 列表的平台（Gemini、Perplexity、Le Chat 等）目前无法通过白名单安全放行。
 
 ## 常见问题
 

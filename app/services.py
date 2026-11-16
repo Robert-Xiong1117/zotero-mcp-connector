@@ -10,7 +10,7 @@ import urllib.request
 
 from . import bridge
 from . import config as cfgmod
-from . import ngrok
+from . import ngrok, providers
 from .paths import IS_WIN, logs_dir, self_command
 
 log = logging.getLogger("zotero-mcp-connector")
@@ -68,6 +68,7 @@ class Services:
         self.last_status = {}
         self.events = []          # short history shown in the panel
         self._stop = threading.Event()
+        self._providers_tried = 0.0
 
     # ---------- helpers ----------
     def note(self, msg: str) -> None:
@@ -118,6 +119,7 @@ class Services:
                 return False
             cfg.paused = False
             cfg.ensure_secrets()          # upgrades from <1.2.0 get a bridge token here
+            self._refresh_providers(cfg)
             cfgmod.save(cfg)
             self.stop(keep_paused_flag=True)
             self._kill_strays(cfg.port)
@@ -175,6 +177,35 @@ class Services:
                 cfgmod.save(cfg)
                 self.note("已停止（自动守护已暂停）")
 
+    def _refresh_providers(self, cfg, force: bool = False) -> bool:
+        """Refresh ChatGPT's ranges into cfg (not saved). True if the allow-list changed."""
+        self._providers_tried = time.time()
+        try:
+            changed = providers.refresh_openai(cfg, force=force)
+        except providers.ProviderError as e:
+            self.note(f"{e}；ChatGPT 暂不可用")
+            return False
+        if changed:
+            self.note(f"ChatGPT IP 列表已更新：{len(cfg.openai_cidrs)} 条（OpenAI 发布于 {cfg.openai_list_time[:10]}）")
+        return changed
+
+    def set_openai(self, enabled: bool) -> dict:
+        """Panel switch: turn ChatGPT access on/off and reload the tunnel."""
+        cfg = cfgmod.load()
+        cfg.openai_enabled = enabled
+        if enabled:
+            try:
+                providers.refresh_openai(cfg, force=True)
+            except providers.ProviderError as e:
+                cfg.openai_enabled = False
+                cfgmod.save(cfg)
+                raise ValueError(str(e)) from None
+        cfgmod.save(cfg)
+        if cfg.configured and not cfg.paused:
+            self.restart_tunnel()
+        self.note(f"ChatGPT 访问已{'开启' if enabled else '关闭'}")
+        return {"enabled": cfg.openai_enabled, "count": len(cfg.openai_cidrs), "list_time": cfg.openai_list_time}
+
     def restart_tunnel(self) -> None:
         """Re-apply the traffic policy (e.g. auth mode on/off) without touching the server."""
         with self.lock:
@@ -221,6 +252,8 @@ class Services:
             "tunnel": self._tunnel_up(cfg) if cfg.configured else False,
             "auth_mode_left": max(0, int(cfg.auth_mode_until - time.time())),
             "auth_mode_ip": cfg.auth_mode_ip,
+            "openai": {"enabled": cfg.openai_enabled, "count": len(cfg.openai_cidrs),
+                       "list_time": cfg.openai_list_time[:10]},
             "ai4paper_enabled": cfg.ai4paper_enabled and bool(cfg.ai4paper_token),
             "ai4paper_reachable": http_code(cfg.ai4paper_url, 3) != 0 if cfg.ai4paper_enabled else False,
             "ai4paper_tool_count": len(cfgmod.ai4paper_tools(cfg)),
@@ -261,6 +294,13 @@ class Services:
                     cfg = cfgmod.load()
                     if cfg.auth_mode_until and cfg.auth_mode_until < time.time():
                         self.exit_auth_mode()
+                    if cfg.openai_enabled and time.time() - self._providers_tried > 3600:
+                        if self._refresh_providers(cfg):
+                            cfgmod.save(cfg)
+                            if cfg.configured and not cfg.paused:
+                                self.restart_tunnel()
+                        elif cfg.openai_checked_at > self._providers_tried - 5:
+                            cfgmod.save(cfg)      # unchanged, but remember when we last checked
                     if cfg.configured and not cfg.paused:
                         st = self.status()
                         if st["zotero"] != 200:
