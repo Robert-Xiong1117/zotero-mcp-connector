@@ -1,4 +1,5 @@
-"""Server child process: zotero-mcp-lite (with its OAuth) + optional AI4Paper proxy."""
+"""MCP servers: the HTTP child behind the tunnel (zotero-mcp-lite with its OAuth) and the local
+stdio mode for desktop AI clients (DeepSeek Harness etc.). Both expose the same tools."""
 import os
 import sys
 
@@ -19,6 +20,13 @@ def serve(port: int) -> None:
     except cli.RemoteAuthConfigError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(2)
+    add_tools(mcp)
+    print("  HTTP: stateless (no Mcp-Session-Id required)", file=sys.stderr)
+    mcp.run(transport="streamable-http", host="127.0.0.1", port=port, **HTTP_RUN_OPTIONS)
+
+
+def add_tools(mcp) -> None:
+    """Everything this app adds to zotero-mcp-lite. Each part is optional and can never take the server down."""
     try:
         from .ai4paper import mount_from_env
         if mount_from_env(mcp):
@@ -37,5 +45,20 @@ def serve(port: int) -> None:
         print("  Zotero bridge tools: zotero_highlight_quote, zotero_find_pdf", file=sys.stderr)
     except Exception as e:
         print(f"  Zotero bridge tools: disabled ({type(e).__name__}: {e})", file=sys.stderr)
-    print("  HTTP: stateless (no Mcp-Session-Id required)", file=sys.stderr)
-    mcp.run(transport="streamable-http", host="127.0.0.1", port=port, **HTTP_RUN_OPTIONS)
+
+
+def serve_stdio() -> None:
+    """Local stdio server for AI apps on this computer (e.g. DeepSeek Harness). No network, no OAuth:
+    the client starts this process itself. Tokens come from this app's config, so nothing has to be
+    copied into the client. stdout is the protocol channel; logs go to stderr."""
+    from . import config as cfgmod
+    cfg = cfgmod.load()
+    for k in cfgmod.TOOL_ENV_KEYS:
+        os.environ.pop(k, None)
+    os.environ.update(cfgmod.tool_env(cfg))
+    from zotero_mcp import cli
+    cli.setup_environment()
+    from zotero_mcp.server import mcp
+    add_tools(mcp)
+    print("  stdio: ready", file=sys.stderr)
+    mcp.run(transport="stdio", show_banner=False)

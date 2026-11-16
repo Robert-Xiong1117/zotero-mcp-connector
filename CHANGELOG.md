@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.0 — 2026-11-16
+### 新增
+- **本机 stdio 模式** `ZoteroMCP.exe serve-stdio`，供 DeepSeek Harness 等本机 AI 客户端使用。工具与隧道服务器相同
+  （共用同一个 `add_tools`）：zotero-mcp-lite 的工具 + PDF 高亮 + 查找 PDF + 实时批注 + AI4Paper 代理。
+  不经过网络，不需要 OAuth；桥接 Token 与 AI4Paper 设置从本软件配置读取。
+- 窗口版（无控制台）程序在 stdio 模式下会接回父进程传入的标准输入/输出管道，日志写到 stderr 或 `logs/stdio.log`。
+- 控制面板新增「本机 AI 客户端」卡片：按安装路径生成 DeepSeek Harness 插件 patch 和通用 `mcpServers` JSON，可一键复制。
+
 ## 1.3.0 — 2026-11-16
 ### 新增
 - **允许 ChatGPT 访问**（控制面板 →「其他 AI 平台」，默认关闭）。开启后从 OpenAI 官方发布的

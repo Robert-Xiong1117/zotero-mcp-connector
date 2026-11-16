@@ -127,14 +127,9 @@ class Services:
             env = dict(os.environ)
             env["ZOTERO_MCP_ADMIN_PASSWORD"] = cfg.admin_password
             env["ZOTERO_MCP_PUBLIC_URL"] = cfg.public_url
-            env["ZMC_BRIDGE_TOKEN"] = cfg.zmc_bridge_token
-            for k in ("ZMC_AI4PAPER_TOKEN", "ZMC_AI4PAPER_URL", "ZMC_AI4PAPER_SCHEME", "ZMC_AI4PAPER_TOOLS"):
+            for k in cfgmod.TOOL_ENV_KEYS:
                 env.pop(k, None)
-            if cfg.ai4paper_enabled and cfg.ai4paper_token:
-                env["ZMC_AI4PAPER_TOKEN"] = cfg.ai4paper_token
-                env["ZMC_AI4PAPER_URL"] = cfg.ai4paper_url
-                env["ZMC_AI4PAPER_SCHEME"] = cfg.ai4paper_scheme or "bearer"
-                env["ZMC_AI4PAPER_TOOLS"] = ",".join(cfgmod.ai4paper_tools(cfg))
+            env.update(cfgmod.tool_env(cfg))
             out = open(logs_dir() / "server.log", "ab")
             kw = {"creationflags": 0x08000000} if IS_WIN else {"start_new_session": True}
             cmd = self_command() + ["serve-connector", str(cfg.port)]
