@@ -53,6 +53,20 @@ class Config:
             self.zmc_bridge_token = "zmc-" + secrets.token_urlsafe(24)
 
 
+TOOL_ENV_KEYS = ("ZMC_BRIDGE_TOKEN", "ZMC_AI4PAPER_TOKEN", "ZMC_AI4PAPER_URL", "ZMC_AI4PAPER_SCHEME",
+                 "ZMC_AI4PAPER_TOOLS")
+
+
+def tool_env(cfg: "Config") -> dict:
+    """Env the tool layer reads: bridge token and (if enabled) the AI4Paper proxy settings."""
+    env = {"ZMC_BRIDGE_TOKEN": cfg.zmc_bridge_token}
+    if cfg.ai4paper_enabled and cfg.ai4paper_token:
+        env.update({"ZMC_AI4PAPER_TOKEN": cfg.ai4paper_token, "ZMC_AI4PAPER_URL": cfg.ai4paper_url,
+                    "ZMC_AI4PAPER_SCHEME": cfg.ai4paper_scheme or "bearer",
+                    "ZMC_AI4PAPER_TOOLS": ",".join(ai4paper_tools(cfg))})
+    return env
+
+
 def ai4paper_tools(cfg: "Config") -> list:
     from .ai4paper import DEFAULT_TOOLS
     return list(cfg.ai4paper_tools) if cfg.ai4paper_tools else list(DEFAULT_TOOLS)

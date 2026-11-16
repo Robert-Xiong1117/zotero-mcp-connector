@@ -72,7 +72,18 @@ details summary{cursor:pointer;color:var(--muted)}
     <div class="note" id="oaMsg"></div>
     <div class="note">白名单只放行 OpenAI 官方发布的服务器 IP（<a href="https://developers.openai.com/api/docs/guides/ip-addresses" target="_blank" rel="noopener">chatgpt-connectors.json</a>），每天自动更新；能否使用仍由同一套 OAuth 与两道密码决定。
       在 ChatGPT 中添加连接器时 URL 与上面相同；首次授权前先点「进入授权模式」。</div>
-    <div class="note">DeepSeek Harness 在本机运行、不经过隧道，无需加入白名单。</div>
+    <div class="note">DeepSeek Harness 等本机客户端不经过隧道，见下方「本机 AI 客户端」。</div>
+  </div>
+
+  <div class="card"><h2>本机 AI 客户端（DeepSeek Harness 等）</h2>
+    <div class="note" style="margin-top:0">本机客户端直接启动 ZoteroMCP 的 stdio 模式，工具与 claude.ai 相同（含 PDF 高亮、查找 PDF、实时批注、AI4Paper）。
+      不经过网络，不需要 OAuth 或白名单；桥接 Token 等从本软件的配置读取，无需复制。</div>
+    <details style="margin-top:10px"><summary>DeepSeek Harness：插件 patch（cordis.patch.yml）</summary>
+      <pre id="dsYml" style="font:12px ui-monospace,Consolas,monospace;white-space:pre-wrap;margin:8px 0"></pre>
+      <div class="btns"><button id="btnDsCopy">复制</button></div></details>
+    <details style="margin-top:8px"><summary>其他客户端（Claude Desktop、Cursor 等 JSON 配置）</summary>
+      <pre id="mcpJson" style="font:12px ui-monospace,Consolas,monospace;white-space:pre-wrap;margin:8px 0"></pre>
+      <div class="btns"><button id="btnJsonCopy">复制</button></div></details>
   </div>
 
   <div class="card"><h2>AI4Paper（通过同一个连接器调用）</h2>
@@ -181,5 +192,8 @@ $("btnBrShow").onclick=()=>{const i=$("brTok");i.type=i.type=="password"?"text":
 $("btnBrCopy").onclick=()=>{navigator.clipboard.writeText($("brTok").value);$("btnBrCopy").textContent="已复制";setTimeout(()=>$("btnBrCopy").textContent="复制",1500)};
 $("oaOn").onchange=e=>act(e.target,async()=>{$("oaMsg").textContent="正在下载 ChatGPT IP 列表并重载隧道…";
  const r=await api("/api/providers",{openai:e.target.checked});e.target.checked=r.openai.enabled});
+api("/api/local-client").then(r=>{$("dsYml").textContent=r.deepseek_yml;$("mcpJson").textContent=r.json}).catch(()=>{});
+function copyBtn(b,src){b.onclick=()=>{navigator.clipboard.writeText($(src).textContent);b.textContent="已复制";setTimeout(()=>b.textContent="复制",1500)}}
+copyBtn($("btnDsCopy"),"dsYml");copyBtn($("btnJsonCopy"),"mcpJson");
 refresh();setInterval(refresh,5000);loadAi4().catch(()=>{});loadBridge().catch(()=>{});
 </script></body></html>"""

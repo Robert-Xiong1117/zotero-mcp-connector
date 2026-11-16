@@ -11,6 +11,37 @@ def _ensure_streams():
     os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 
 
+def _stdio_streams():
+    """stdio mode needs real stdin/stdout. A windowed (no-console) build can start with them set to None
+    even when the parent process passed pipes, so reattach the inherited Windows handles. Logs go to a
+    file unless the parent gave us a usable stderr."""
+    import io
+    import os
+    if sys.platform.startswith("win") and (sys.stdin is None or sys.stdout is None):
+        import ctypes
+        import msvcrt
+        k32 = ctypes.windll.kernel32
+        k32.GetStdHandle.restype = ctypes.c_void_p
+
+        def reopen(std_id, mode):
+            h = k32.GetStdHandle(std_id)
+            if not h or h == ctypes.c_void_p(-1).value:
+                return None
+            fd = msvcrt.open_osfhandle(h, os.O_RDONLY if "r" in mode else os.O_WRONLY)
+            return io.TextIOWrapper(os.fdopen(fd, mode + "b", buffering=0), encoding="utf-8",
+                                    line_buffering="w" in mode, write_through="w" in mode)
+        sys.stdin = sys.stdin or reopen(-10, "r")
+        sys.stdout = sys.stdout or reopen(-11, "w")
+        sys.stderr = sys.stderr or reopen(-12, "w")
+    if sys.stderr is None:
+        from .paths import logs_dir
+        sys.stderr = open(logs_dir() / "stdio.log", "a", buffering=1, encoding="utf-8")
+    if sys.stdin is None or sys.stdout is None:
+        print("serve-stdio: no stdin/stdout pipes; start it from an MCP client", file=sys.stderr)
+        sys.exit(2)
+    os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+
+
 def _serve_mcp(argv):
     """Child-process mode: run the bundled zotero-mcp-lite CLI unchanged."""
     _ensure_streams()
@@ -85,6 +116,10 @@ def main():
         _ensure_streams()
         from .serve import serve
         serve(int(argv[1]) if len(argv) > 1 else 8000)
+    elif argv and argv[0] == "serve-stdio":
+        _stdio_streams()
+        from .serve import serve_stdio
+        serve_stdio()
     elif argv and argv[0] == "version":
         from . import __version__
         print(__version__)

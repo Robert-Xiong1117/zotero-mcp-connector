@@ -31,5 +31,5 @@ coll = COLLECT(exe, a.binaries, a.datas, name="ZoteroMCP")
 if IS_MAC:
     app = BUNDLE(coll, name="ZoteroMCP.app", icon=ICON, bundle_identifier="com.robertxiong.zoteromcp",
                  info_plist={"LSUIElement": True, "CFBundleName": "Zotero MCP", "CFBundleDisplayName": "Zotero MCP",
-                             "CFBundleShortVersionString": "1.3.0", "NSHighResolutionCapable": True,
+                             "CFBundleShortVersionString": "1.4.0", "NSHighResolutionCapable": True,
                              "LSMinimumSystemVersion": "12.0"})

@@ -84,7 +84,21 @@ claude.ai → 设置 → 连接器 → 本连接器 → 工具权限：把 `zote
 
 已知限制：OpenAI 社区有人报告开发者模式下偶尔有请求来自列表之外的地址（微软 Azure 网段）；遇到被拦截时，面板「最近请求」中会显示来源 IP。
 
-**DeepSeek Harness** 运行在本机，不经过隧道，不需要白名单。其他没有公开出站 IP 列表的平台（Gemini、Perplexity、Le Chat 等）目前无法通过白名单安全放行。
+其他没有公开出站 IP 列表的平台（Gemini、Perplexity、Le Chat 等）目前无法通过白名单安全放行。DeepSeek Harness 见下一节。
+
+## 本机 AI 客户端：DeepSeek Harness 等（v1.4.0 起）
+运行在本机的 AI 客户端可以直接启动 ZoteroMCP 的 **stdio 模式**：
+
+```
+"E:\APP\ZoteroMCP\ZoteroMCP.exe" serve-stdio
+```
+
+工具与 claude.ai 连接器相同：zotero-mcp-lite 的工具、`zotero_highlight_quote`、`zotero_find_pdf`、实时批注，以及已启用的 AI4Paper 工具。
+不经过网络、隧道和 OAuth；桥接 Token 与 AI4Paper Token 从本软件配置读取，无需复制到客户端。Zotero 仍需打开。
+
+控制面板 →「本机 AI 客户端」提供按你的安装路径生成的配置，可直接复制：
+- **DeepSeek Harness**：插件 patch（`cordis.patch.yml`，使用 `@deepseek-ai/dsh-mcp-client`，`transport: stdio`）；
+- **Claude Desktop、Cursor 等**：`mcpServers` JSON。
 
 ## 常见问题
 
