@@ -66,4 +66,5 @@ def test_panel_gives_ready_to_paste_client_config():
     assert entry["name"] == "@deepseek-ai/dsh-mcp-client"
     assert entry["config"]["transport"] == "stdio" and entry["config"]["command"] == r["command"]
     assert entry["config"]["args"] == r["args"]
-    assert json.loads(r["json"])["mcpServers"]["zotero"]["args"] == r["args"]
+    assert entry["id"] == entry["config"]["serverName"] == "zoteromcp"      # must not clash with an existing "zotero" server
+    assert json.loads(r["json"])["mcpServers"]["zoteromcp"]["args"] == r["args"]

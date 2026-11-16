@@ -118,17 +118,17 @@ class Panel:
                     exe = cmd[0].replace("'", "''")           # YAML single-quoted: backslashes stay literal
                     yml = "\n".join([
                         "- insert:",
-                        "    - id: zotero-mcp",
+                        "    - id: zoteromcp",
                         "      name: '@deepseek-ai/dsh-mcp-client'",
                         "      config:",
-                        "        serverName: zotero",
+                        "        serverName: zoteromcp",            # tools appear as mcp__zoteromcp__<tool>
                         "        transport: stdio",
                         f"        command: '{exe}'",
                         f"        args: {json.dumps(args, ensure_ascii=False)}",
                         "        toolCallTimeoutMs: 300000",
                         "        failOnStartupError: true",
                     ]) + "\n"
-                    generic = json.dumps({"mcpServers": {"zotero": {"command": cmd[0], "args": args}}},
+                    generic = json.dumps({"mcpServers": {"zoteromcp": {"command": cmd[0], "args": args}}},
                                          ensure_ascii=False, indent=2)
                     return self._send(200, {"command": cmd[0], "args": args, "deepseek_yml": yml, "json": generic})
                 if path == "/api/credentials":

@@ -98,6 +98,7 @@ claude.ai → 设置 → 连接器 → 本连接器 → 工具权限：把 `zote
 
 控制面板 →「本机 AI 客户端」提供按你的安装路径生成的配置，可直接复制：
 - **DeepSeek Harness**：插件 patch（`cordis.patch.yml`，使用 `@deepseek-ai/dsh-mcp-client`，`transport: stdio`）；
+  服务器名为 `zoteromcp`，DeepSeek 中工具显示为 `mcp__zoteromcp__<工具名>`，可与已有的其他 Zotero MCP（如 zotero-mcp-server，服务器名 `zotero`）**并存**，工具名不会冲突；
 - **Claude Desktop、Cursor 等**：`mcpServers` JSON。
 
 ## 常见问题
