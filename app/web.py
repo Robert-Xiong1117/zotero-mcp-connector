@@ -107,6 +107,10 @@ class Panel:
                     from . import bridge
                     return self._send(200, {"token": c.zmc_bridge_token, "ping": bridge.ping(c.zmc_bridge_token),
                                             "xpi": XPI_URL})
+                if path == "/api/providers":
+                    c = cfgmod.load()
+                    return self._send(200, {"openai": {"enabled": c.openai_enabled, "count": len(c.openai_cidrs),
+                                                       "list_time": c.openai_list_time[:10]}})
                 if path == "/api/credentials":
                     c = cfgmod.load()
                     return self._send(200, {"basic_user": c.basic_user, "basic_password": c.basic_password,
@@ -164,6 +168,8 @@ class Panel:
                         cfgmod.save(c)
                         threading.Thread(target=svc.start, daemon=True).start()
                         return self._send(200, {"ok": True})
+                    if path == "/api/providers":
+                        return self._send(200, {"openai": svc.set_openai(bool(data.get("openai")))})
                     if path == "/api/start":
                         threading.Thread(target=svc.start, daemon=True).start()
                         return self._send(200, {"ok": True})

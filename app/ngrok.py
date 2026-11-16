@@ -71,7 +71,8 @@ def policy_path() -> Path:
 
 
 def write_policy(cfg: Config) -> Path:
-    allow = list(cfg.allow_cidrs)
+    from .providers import allow_list
+    allow = allow_list(cfg)
     if cfg.auth_mode_ip and cfg.auth_mode_until > time.time():
         allow.append(f"{cfg.auth_mode_ip}/32")
     allow_yaml = "\n".join(f"            - {c}" for c in allow)

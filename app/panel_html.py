@@ -67,6 +67,14 @@ details summary{cursor:pointer;color:var(--muted)}
     <button id="btnAuth">进入授权模式 15 分钟</button><button id="btnAuthEnd" class="hide">结束授权模式</button>
   </div><div class="note">授权模式：临时放行本机公网 IP，用于在 claude.ai 首次连接或重新授权；到时自动恢复，只留 Anthropic 的 IP。</div></div>
 
+  <div class="card"><h2>其他 AI 平台</h2>
+    <label><input type="checkbox" id="oaOn"> 允许 ChatGPT 访问（自定义连接器 / 开发者模式）</label>
+    <div class="note" id="oaMsg"></div>
+    <div class="note">白名单只放行 OpenAI 官方发布的服务器 IP（<a href="https://developers.openai.com/api/docs/guides/ip-addresses" target="_blank" rel="noopener">chatgpt-connectors.json</a>），每天自动更新；能否使用仍由同一套 OAuth 与两道密码决定。
+      在 ChatGPT 中添加连接器时 URL 与上面相同；首次授权前先点「进入授权模式」。</div>
+    <div class="note">DeepSeek Harness 在本机运行、不经过隧道，无需加入白名单。</div>
+  </div>
+
   <div class="card"><h2>AI4Paper（通过同一个连接器调用）</h2>
     <label><input type="checkbox" id="ai4On"> 启用：工具以 <code>ai4paper_</code> 前缀出现在 claude.ai / PPT / 手机</label>
     <label>AI4Paper MCP Token <small>Zotero → 设置 → AI4Paper → 工具与连接 → 外部 AI 工具连接（需开启「启用认证」）</small></label>
@@ -122,7 +130,10 @@ async function refresh(){try{const s=await api("/api/status");
  row("server",s.server?"ok":"bad",s.server?"运行中，要求认证":"未运行");
  row("tunnel",s.tunnel?"ok":"bad",s.tunnel?"在线":"未连接");
  authOn=s.auth_mode_left>0;
- row("auth",authOn?"warn":"ok",authOn?`授权模式：放行 ${s.auth_mode_ip}，剩 ${Math.ceil(s.auth_mode_left/60)} 分钟`:"仅 Anthropic");
+ row("auth",authOn?"warn":"ok",authOn?`授权模式：放行 ${s.auth_mode_ip}，剩 ${Math.ceil(s.auth_mode_left/60)} 分钟`:
+  (s.openai&&s.openai.enabled?`Anthropic + ChatGPT（${s.openai.count} 段）`:"仅 Anthropic"));
+ if(s.openai&&document.activeElement!==$("oaOn")){$("oaOn").checked=s.openai.enabled;
+  $("oaMsg").textContent=s.openai.enabled?`已放行 ChatGPT：${s.openai.count} 个 IP 段，OpenAI 发布于 ${s.openai.list_time}，每天自动检查更新。`:"未开启：ChatGPT 的请求会被白名单拦截。"}
  $("btnAuth").classList.toggle("hide",authOn);$("btnAuthEnd").classList.toggle("hide",!authOn);
  if(document.activeElement!==$("url"))$("url").value=s.url;
  $("reqs").innerHTML=(s.requests.length?s.requests:[{time:"",method:"",path:"（暂无）",status:"",from:""}]).map(q=>`<tr><td>${q.time}</td><td>${q.method}</td><td>${q.path}</td><td>${q.status}</td><td>${q.from}</td></tr>`).join("");
@@ -168,5 +179,7 @@ async function loadBridge(){const r=await api("/api/bridge");$("brTok").value=r.
  $("brMsg").textContent=r.token?"":"尚未生成，点「启动 / 重启」后刷新本页"}
 $("btnBrShow").onclick=()=>{const i=$("brTok");i.type=i.type=="password"?"text":"password";$("btnBrShow").textContent=i.type=="password"?"显示":"隐藏"};
 $("btnBrCopy").onclick=()=>{navigator.clipboard.writeText($("brTok").value);$("btnBrCopy").textContent="已复制";setTimeout(()=>$("btnBrCopy").textContent="复制",1500)};
+$("oaOn").onchange=e=>act(e.target,async()=>{$("oaMsg").textContent="正在下载 ChatGPT IP 列表并重载隧道…";
+ const r=await api("/api/providers",{openai:e.target.checked});e.target.checked=r.openai.enabled});
 refresh();setInterval(refresh,5000);loadAi4().catch(()=>{});loadBridge().catch(()=>{});
 </script></body></html>"""
