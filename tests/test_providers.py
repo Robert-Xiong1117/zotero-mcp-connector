@@ -84,8 +84,24 @@ def test_policy_includes_chatgpt_only_when_enabled():
     assert "20.0.1.0/24" not in ngrok.write_policy(cfg).read_text()
     cfg.openai_enabled = True
     text = ngrok.write_policy(cfg).read_text()
-    assert "160.79.104.0/21" in text and "            - 20.0.1.0/24" in text
+    assert "'160.79.104.0/21'" in text and "'20.0.1.0/24'" in text
     assert "basic-auth" in text                                                        # login protection unchanged
+
+
+def test_policy_avoids_restrict_ips_entry_limit():
+    """ngrok's restrict-ips takes at most 10 entries (ERR_NGROK_2218, hit live with 290);
+    the allow-list must be one inCidrRanges expression instead, however long it is."""
+    import yaml
+    from app import ngrok
+    big = [f"20.{i // 256}.{i % 256}.0/24" for i in range(300)]
+    cfg = _cfg(openai_enabled=True, openai_cidrs=big); cfg.ensure_secrets()
+    cfg.auth_mode_ip, cfg.auth_mode_until = "1.2.3.4", time.time() + 60
+    pol = yaml.safe_load(ngrok.write_policy(cfg).read_text())
+    rule = pol["on_http_request"][0]
+    assert "restrict-ips" not in str(pol)
+    assert rule["actions"] == [{"type": "deny", "config": {"status_code": 403}}]
+    (expr,) = rule["expressions"]
+    assert expr.startswith("!inCidrRanges(conn.client_ip, [") and expr.count("'") == 2 * 302   # 300 + Anthropic + auth IP
 
 
 def test_panel_switch_and_status(monkeypatch):
