@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.4.1 — 2026-11-17
+### 修复
+- **Zotero 没开时连接器整个不可用，且不会自行恢复**（所有工具报 `WinError 10061 目标计算机积极拒绝`）。两个原因：
+  - 登录时「顺带启动 Zotero」从未生效：判断 Zotero 是否在运行用的是「进程名以 zotero 开头」，
+    ZoteroMCP 自己的 `ZoteroMCP.exe` 也符合，于是每次都以为 Zotero 已开着。现在只认 `zotero.exe` / `zotero`。
+  - Zotero 中途被关掉后，看门狗只等待不处理。现在会自动重新启动 Zotero（后台启动，最多每 10 分钟一次），并在控制面板的事件记录里写一条。
+
+### 测试
+- `tests/test_zotero_launch.py`：ZoteroMCP 进程不再被误认为 Zotero；只有连接器在运行时会启动 Zotero；看门狗重启 Zotero 的频率限制。
+
 ## 1.4.0 — 2026-11-16
 ### 新增
 - **本机 stdio 模式** `ZoteroMCP.exe serve-stdio`，供 DeepSeek Harness 等本机 AI 客户端使用。工具与隧道服务器相同

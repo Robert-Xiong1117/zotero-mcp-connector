@@ -8,7 +8,7 @@ import time
 import urllib.error
 import urllib.request
 
-from . import bridge
+from . import autostart, bridge
 from . import config as cfgmod
 from . import ngrok, providers
 from .paths import IS_WIN, logs_dir, self_command
@@ -69,8 +69,20 @@ class Services:
         self.events = []          # short history shown in the panel
         self._stop = threading.Event()
         self._providers_tried = 0.0
+        self._zotero_launch_tried = 0.0
 
     # ---------- helpers ----------
+    ZOTERO_RELAUNCH_INTERVAL = 600   # seconds; gives a slow start time to finish and doesn't fight a user who quit it
+
+    def relaunch_zotero_if_down(self, st: dict) -> None:
+        """Every tool needs Zotero's local API, so a closed Zotero makes the connector useless:
+        start it again, at most once every ten minutes."""
+        if st.get("zotero") == 200 or time.time() - self._zotero_launch_tried < self.ZOTERO_RELAUNCH_INTERVAL:
+            return
+        self._zotero_launch_tried = time.time()
+        if autostart.launch_zotero_if_needed():
+            self.note("Zotero 未运行，已自动启动")
+
     def note(self, msg: str) -> None:
         stamp = time.strftime("%H:%M:%S")
         self.events.append(f"{stamp}  {msg}")
@@ -299,7 +311,7 @@ class Services:
                     if cfg.configured and not cfg.paused:
                         st = self.status()
                         if st["zotero"] != 200:
-                            pass  # wait for Zotero; nothing useful to restart
+                            self.relaunch_zotero_if_down(st)   # server/tunnel can't help until Zotero is back
                         elif not (st["server"] and st["tunnel"]):
                             self.note("检测到异常，自动重启")
                             self.start()

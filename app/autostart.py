@@ -62,17 +62,28 @@ def is_enabled() -> bool:
     return False
 
 
-def launch_zotero_if_needed() -> None:
+ZOTERO_WIN_PATHS = (Path(r"C:\Program Files\Zotero\zotero.exe"), Path(r"C:\Program Files (x86)\Zotero\zotero.exe"))
+ZOTERO_PROCESS_NAMES = {"zotero.exe", "zotero"}   # exact: "ZoteroMCP.exe" (this app) must not count
+
+
+def zotero_running() -> bool:
     try:
         import psutil
-        if any((p.info.get("name") or "").lower().startswith("zotero") for p in psutil.process_iter(["name"])):
-            return
+        return any((p.info.get("name") or "").lower() in ZOTERO_PROCESS_NAMES for p in psutil.process_iter(["name"]))
     except Exception:
-        pass
+        return False
+
+
+def launch_zotero_if_needed() -> bool:
+    """Start Zotero in the background if it is not running. True if a launch was started."""
+    if zotero_running():
+        return False
     if IS_WIN:
-        for exe in (Path(r"C:\Program Files\Zotero\zotero.exe"), Path(r"C:\Program Files (x86)\Zotero\zotero.exe")):
+        for exe in ZOTERO_WIN_PATHS:
             if exe.exists():
                 subprocess.Popen([str(exe)], creationflags=0x00000008)  # DETACHED_PROCESS
-                return
+                return True
     elif IS_MAC and Path("/Applications/Zotero.app").exists():
         subprocess.Popen(["/usr/bin/open", "-g", "-a", "Zotero"])
+        return True
+    return False
